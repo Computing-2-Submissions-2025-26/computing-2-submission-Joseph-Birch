@@ -6,11 +6,17 @@ tic tac toe - getting 3 in a row - but players get 3 different sizes of pieces t
 It is played on a 3x3 board (or in this case beach) with hermit crabs looking for more sizeable abode.
 
 -players take one turn each
+
 -Crabs will only change colour shells if presented with a bigger one
+
 -only the biggest shell (the visible one) on each tile counts towards the win conditions
+
 -placed shells can be moved but only by their owner (dictated by colour) - this will use a turn
+
 -to win a player must create a visible line of 3 adjascent shells of their colour
+
 -a draw will occur if both players have placed down all shells and there is no winner
+
 -if uncovering an oponents shell to create a 3 shell win condition also creates a win condition for your opponent, the player making the move will have priority in winning.
 
 Use of Generative AI:
