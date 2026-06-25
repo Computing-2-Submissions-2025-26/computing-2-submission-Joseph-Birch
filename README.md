@@ -5,7 +5,7 @@ tic tac toe - getting 3 in a row - but players get 3 different sizes of pieces t
 
 It is played on a 3x3 board (or in this case beach) with hermit crabs looking for more sizeable abode.
 
--players take one turn each
+-players make one move per turn
 
 -Crabs will only change colour shells if presented with a bigger one
 
@@ -21,9 +21,13 @@ It is played on a 3x3 board (or in this case beach) with hermit crabs looking fo
 
 Use of Generative AI:
 Chat GPT - 5.4 by OpenAI (https://chatgpt.com/) has been used in this work for the following:
+
 -providing links to relevant javascript and html documentation pages/sites
+
 -general debugging of code
+
 -explain errors flagged by the linter (JSLint) and suggest fixes
+
 -check sufficient functions had documentation
 
 
