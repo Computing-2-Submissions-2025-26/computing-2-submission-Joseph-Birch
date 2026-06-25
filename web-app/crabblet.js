@@ -1,0 +1,510 @@
+import * as R from "./ramda.js";
+/**
+ * @namespace Crabblet
+ * @author Joseph Birch
+ * @version 2026
+ * @description
+ * Crabblet.js is a module to play "Crabblet", a game based on Gobblet but with (hermit)crabs!
+ *
+ * Crabblet.js contains the backend logic for:
+ * - creating a new game state
+ * - checking legal moves
+ * - applying moves
+ * - detecting wins
+ * - detecting simplified draw conditions
+ */
+
+
+
+/**
+ * A single game piece (shell).
+ * @typedef {Object} Piece
+ * @property {string} id A unique piece ID such as `blue-1-1`.
+ * @property {"blue"|"red"} player The player who owns the piece.
+ * @property {number} size The piece size: 1 = small, 2 = medium, 3 = large.
+ */
+
+/**
+ * A board position on the 3x3 grid.
+ * @typedef {Object} Position
+ * @property {number} row The row number, from 0 to 2.
+ * @property {number} col The column number, from 0 to 2.
+ */
+
+/**
+ * A moved piece that comes from a player's reserve pieces.
+ * @typedef {Object} ReserveSource
+ * @property {"reserve"} type Denotes the source as a reserve piece.
+ * @property {string} pieceId The ID of the reserve piece being moved.
+ */
+
+/**
+ * A moved piece that comes from the board.
+ * @typedef {Object} BoardSource
+ * @property {"board"} type Denotes the source as a board position.
+ * @property {number} row The source row number.
+ * @property {number} col The source column number.
+ */
+
+/**
+ * A piece move in Crabblet.
+ * @typedef {Object} Move
+ * @property {ReserveSource|BoardSource} from The source the piece is moved from.
+ * @property {Position} to The new position on the board.
+ */
+
+/**
+ * The full, current game state of Crabblet.
+ * @typedef {Object} Game
+ * @property {"blue"|"red"} currentPlayer The player whose turn it is.
+ * @property {"playing"|"won"|"draw"} status The game status.
+ * @property {"blue"|"red"|null} winner The winner of the game - equals null if there is none.
+ * @property {Array<Array<Array<Piece>>>} board A 3x3 board where each tile contains a stack of pieces.
+ * @property {{blue: Array<Piece>, red: Array<Piece>}} reserves The unused pieces in each player's reserve.
+ */
+
+
+/**
+ * Creates the full set of reserve pieces for one player and one size.
+ * @function createPieces
+ * @memberof module:Crabblet
+ * @param {"blue"|"red"} player The player who owns the pieces.
+ * @param {number} size The size of the pieces to create.
+ * @param {number} count The number of pieces to create.
+ * @returns {Array<Piece>} A list of created pieces.
+ */
+const createPieces = (player, size, count) => {
+  const pieces = [];
+
+  for (let i = 1; i <= count; i += 1) {
+    pieces.push({
+      id: `${player}-${size}-${i}`,
+      player,
+      size
+    });
+  }
+
+  return pieces;
+};
+
+
+/**
+ * Creates a new empty 3x3 board where each tile starts as an empty stack.
+ * @returns {Array<Array<Array<Piece>>>} A new empty board.
+ */
+const createEmptyBoard = () => [
+  [[], [], []],
+  [[], [], []],
+  [[], [], []]
+];
+
+/**
+ * Creates a new game state with:
+ * - an empty board
+ * - blue playing first
+ * - no winner
+ * - full reserves for red and blue players
+ * @returns {Game} A new Crabblet game state.
+ */
+export const createGame = () => ({
+  currentPlayer: "blue",
+  status: "playing",
+  winner: null,
+  board: createEmptyBoard(),
+  reserves: {
+    blue: [
+      ...createPieces("blue", 1, 2),
+      ...createPieces("blue", 2, 2),
+      ...createPieces("blue", 3, 2)
+    ],
+    red: [
+      ...createPieces("red", 1, 2),
+      ...createPieces("red", 2, 2),
+      ...createPieces("red", 3, 2)
+    ]
+  }
+});
+
+/**
+ * Returns the player whose turn it currently is.
+ * @param {Game} game The current game state.
+ * @returns {"blue"|"red"} The current player playing.
+ */
+export const getCurrentPlayer = (game) => game.currentPlayer;
+
+/**
+ * Checks whether the game has finished.
+ * @param {Game} game The current game state.
+ * @returns {boolean} `true` if the game is finished, else `false`.
+ */
+export const isGameFinished = (game) => game.status !== "playing";
+
+/**
+ * Returns the top visible piece from a stack.
+ * @param {Array<Piece>} stack A stack of pieces from one board tile.
+ * @returns {Piece|null} The top visible piece. If the stack is empty it will return `null`.
+ */
+export const getTopPiece = (stack) =>
+  stack.length === 0 ? null : stack[stack.length - 1];
+
+/**
+ * Returns the stack of pieces stored on a specified board tile.
+ * @param {Game} game The current game state.
+ * @param {number} row The row number.
+ * @param {number} col The column number.
+ * @returns {Array<Piece>} The stack at the given board position.
+ */
+export const getTile = (game, row, col) => game.board[row][col];
+
+/**
+ * Returns a version of the board showing only the visible top pieces.
+ * @param {Game} game The current game state.
+ * @returns {Array<Array<Piece|null>>} A 3x3 board of visible top pieces.
+ */
+export const getVisibleBoard = (game) =>
+  game.board.map((row) =>
+    row.map((stack) => getTopPiece(stack))
+  );
+
+/**
+ * Checks whether a row and column are within the 3x3 board.
+ * @param {number} row The row index to check.
+ * @param {number} col The column index to check.
+ * @returns {boolean} `true` if the position is on the board, otherwise `false`.
+ */
+const isWithinBoard = (row, col) =>
+  row >= 0 && row < 3 && col >= 0 && col < 3;
+
+/**
+ * Returns the other player.
+ * @param {"blue"|"red"} player The current player.
+ * @returns {"blue"|"red"} The other player.
+ */
+const otherPlayer = (player) =>
+  player === "blue" ? "red" : "blue";
+
+/**
+ * Checks whether a board piece is being moved back onto the same square.
+ * @param {BoardSource} from The source board position.
+ * @param {Position} to The new board position.
+ * @returns {boolean} equals `true` if the source and new position is the same square.
+ */
+const samePosition = (from, to) =>
+  from.type === "board" &&
+  from.row === to.row &&
+  from.col === to.col;
+
+/**
+ * Checks whether a piece can legally be placed onto a stack.
+ * A piece may be legally placed on:
+ * - an empty tile
+ * - a smaller piece of a different colour
+ * @param {Piece} piece The piece being placed.
+ * @param {Array<Piece>} stack The new position stack.
+ * @returns {boolean} equals `true` if the piece can be legally placed on the stack.
+ */
+const canStackOn = (piece, stack) => {
+  const topPiece = getTopPiece(stack);
+
+  if (topPiece === null) {
+    return true;
+  }
+
+  return piece.size > topPiece.size;
+};
+
+/**
+ * Finds a reserve piece belonging to a player by its piece ID.
+ * @param {Game} game The current game state.
+ * @param {"blue"|"red"} player The player whose reserve is being checked.
+ * @param {string} pieceId The piece ID to find.
+ * @returns {Piece|null} The matching piece - 'null' if its not found.
+ */
+const findReservePiece = (game, player, pieceId) =>
+  game.reserves[player].find((piece) => piece.id === pieceId) ?? null;
+
+/**
+ * Gets the piece that a player is trying to move, either from reserve or from the board.
+ * @param {Game} game The current game state.
+ * @param {Move} move The attempted move.
+ * @returns {Piece|null} The piece being moved - `null` if no piece is found.
+ */
+const getPieceFromMoveSource = (game, move) => {
+  const { from } = move;
+
+  if (from.type === "reserve") {
+    return findReservePiece(game, game.currentPlayer, from.pieceId);
+  }
+
+  if (from.type === "board") {
+    if (!isWithinBoard(from.row, from.col)) {
+      return null;
+    }
+
+    const stack = getTile(game, from.row, from.col);
+    const topPiece = getTopPiece(stack);
+
+    if (topPiece === null) {
+      return null;
+    }
+
+    if (topPiece.player !== game.currentPlayer) {
+      return null;
+    }
+
+    return topPiece;
+  }
+
+  return null;
+};
+
+/**
+ * Determines whether an attempted move is legal in the current game state.
+ * Legals moves must:
+ * - be made while the game is still in the 'playing' state
+ * - have a valid source and new position
+ * - land within the 3x3 board
+ * - use a piece matching the colour of the current player
+ * - not stay in the same tile
+ * - be placed onto an empty tile or a smaller visible piece of the opposite colour
+ * @param {Game} game The current game state.
+ * @param {Move} move The attempted move.
+ * @returns {boolean} equals `true` if the move is legal - else `false`.
+ */
+export const isLegalMove = (game, move) => {
+  if (isGameFinished(game)) {
+    return false;
+  }
+
+  if (!move || !move.from || !move.to) {
+    return false;
+  }
+
+  const { from, to } = move;
+
+  if (!isWithinBoard(to.row, to.col)) {
+    return false;
+  }
+
+  const piece = getPieceFromMoveSource(game, move);
+
+  if (piece === null) {
+    return false;
+  }
+
+  if (piece.player !== game.currentPlayer) {
+    return false;
+  }
+
+  if (from.type === "board") {
+    if (!isWithinBoard(from.row, from.col)) {
+      return false;
+    }
+
+    if (samePosition(from, to)) {
+      return false;
+    }
+  }
+
+  const destinationStack = getTile(game, to.row, to.col);
+
+  if (!canStackOn(piece, destinationStack)) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Creates a duplicate version of the board so the original board is not changed.
+ * @param {Array<Array<Array<Piece>>>} board The board to copy.
+ * @returns {Array<Array<Array<Piece>>>} The duplicated board.
+ */
+const duplicateBoard = (board) =>
+  board.map((row) =>
+    row.map((stack) => [...stack])
+  );
+
+/**
+ * Creates a duplicate version of the reserve pieces so the original reserves aren't changed.
+ * @param {{blue: Array<Piece>, red: Array<Piece>}} reserves The reserves to copy.
+ * @returns {{blue: Array<Piece>, red: Array<Piece>}} The duplicated reserves.
+ */
+const duplicateReserves = (reserves) => ({
+  blue: [...reserves.blue],
+  red: [...reserves.red]
+});
+
+/**
+ * Removes a moved piece from its source.
+ * @param {Game} game The current game state.
+ * @param {Move} move The move being done.
+ * @param {Array<Array<Array<Piece>>>} nextBoard The duplicated board for the next state.
+ * @param {{blue: Array<Piece>, red: Array<Piece>}} nextReserves The duplicated reserves for the next state.
+ * @returns {Piece|null} The removed piece - `null` if no piece is removed.
+ */
+const removePieceFromSource = (game, move, nextBoard, nextReserves) => {
+  const { from } = move;
+
+  if (from.type === "reserve") {
+    const reservePieces = nextReserves[game.currentPlayer];
+    const pieceIndex = reservePieces.findIndex((piece) => piece.id === from.pieceId);
+
+    return reservePieces.splice(pieceIndex, 1)[0];
+  }
+
+  if (from.type === "board") {
+    return nextBoard[from.row][from.col].pop();
+  }
+
+  return null;
+};
+
+/**
+ * Places a piece onto the new position tile selected.
+ * @param {Piece} piece The piece to place.
+ * @param {Position} to The new position.
+ * @param {Array<Array<Array<Piece>>>} nextBoard The duplicated board for the next state.
+ * @returns {void}
+ */
+const placePieceAtPosition = (piece, to, nextBoard) => {
+  nextBoard[to.row][to.col].push(piece);
+};
+
+/**
+ * Returns the player who currently owns a tile.
+ * @param {Array<Piece>} stack The stack on a tile.
+ * @returns {"blue"|"red"|null} The player who owns the tile - `null` if no one owns it.
+ */
+const getTileOwner = (stack) => {
+  const topPiece = getTopPiece(stack);
+  return topPiece ? topPiece.player : null;
+};
+
+/**
+ * Returns a version of the board that shows which player owns each tile.
+ * @param {Game} game The current game state.
+ * @returns {Array<Array<("blue"|"red"|null)>>} A board of tile owners.
+ */
+const getBoardOwner = (game) =>
+  game.board.map((row) =>
+    row.map((stack) => getTileOwner(stack))
+  );
+
+/**
+ * Returns all possible winning lines on a 3x3 board.
+ * @param {Array<Array<("blue"|"red"|null)>>} ownerBoard A board of tile owners.
+ * @returns {Array<Array<("blue"|"red"|null)>>} All lines.
+ */
+const getWinningLines = (ownerBoard) => [
+  ownerBoard[0],
+  ownerBoard[1],
+  ownerBoard[2],
+  [ownerBoard[0][0], ownerBoard[1][0], ownerBoard[2][0]],
+  [ownerBoard[0][1], ownerBoard[1][1], ownerBoard[2][1]],
+  [ownerBoard[0][2], ownerBoard[1][2], ownerBoard[2][2]],
+  [ownerBoard[0][0], ownerBoard[1][1], ownerBoard[2][2]],
+  [ownerBoard[0][2], ownerBoard[1][1], ownerBoard[2][0]]
+];
+
+/**
+ * Checks whether a player owns all tiles on a winning line.
+ * @param {Array<Array<("blue"|"red"|null)>>} ownerBoard A board of tile owners.
+ * @param {"blue"|"red"} player The player to check.
+ * @returns {boolean} equals `true` if the player owns a full line of tiles.
+ */
+const playerHasLine = (ownerBoard, player) =>
+  getWinningLines(ownerBoard).some((line) =>
+    line.every((owner) => owner === player)
+  );
+
+/**
+ * Returns the winning player if the board contains a winning line.
+ * If both players have winning lines after a piece is uncovere
+ * the current player is the winner.
+ * @param {Game} game The current game state.
+ * @returns {"blue"|"red"|null} The winner - `null` if no winner.
+ */
+export const getWinner = (game) => {
+  const ownerBoard = getBoardOwner(game);
+  const blueWins = playerHasLine(ownerBoard, "blue");
+  const redWins = playerHasLine(ownerBoard, "red");
+
+  if (blueWins && redWins) {
+    return game.currentPlayer;
+  }
+
+  if (blueWins) {
+    return "blue";
+  }
+
+  if (redWins) {
+    return "red";
+  }
+
+  return null;
+};
+
+/**
+ * Checks whether the game is a draw.
+ * As a simplified draw condition, draws occure when
+ * neither player has won and neither player
+ * has any reserve pieces left
+ * @param {Game} game The current game state.
+ * @returns {boolean} equals `true` if the game is a draw - else equals `false`.
+ */
+export const isDraw = (game) =>
+  getWinner(game) === null &&
+  game.reserves.blue.length === 0 &&
+  game.reserves.red.length === 0;
+
+/**
+ * Applies a move and returns the next game state.
+ * - If the move is illegal, the original game state is returned unchanged.
+ * - If the move creates a winning line, the returned game state has status `won`.
+ * - If the move creates a draw condition, the returned game state has status `draw`.
+ * - Else the turn changes to the other player.
+ * @param {Game} game The current game state.
+ * @param {Move} move The move to apply.
+ * @returns {Game} The next game state.
+ */
+export const applyMove = (game, move) => {
+  if (!isLegalMove(game, move)) {
+    return game;
+  }
+
+  const nextBoard = duplicateBoard(game.board);
+  const nextReserves = duplicateReserves(game.reserves);
+
+  const piece = removePieceFromSource(game, move, nextBoard, nextReserves);
+  placePieceAtPosition(piece, move.to, nextBoard);
+
+  const nextGame = {
+    ...game,
+    board: nextBoard,
+    reserves: nextReserves
+  };
+
+  const winner = getWinner(nextGame);
+
+  if (winner !== null) {
+    return {
+      ...nextGame,
+      status: "won",
+      winner
+    };
+  }
+
+  if (isDraw(nextGame)) {
+    return {
+      ...nextGame,
+      status: "draw",
+      winner: null
+    };
+  }
+
+  return {
+    ...nextGame,
+    currentPlayer: otherPlayer(game.currentPlayer)
+  };
+};

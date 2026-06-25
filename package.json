@@ -2,15 +2,29 @@
   "name": "computing-2-submission",
   "type": "module",
   "version": "1.0.0",
-  "description": "",
+  "description": "[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/H6lPFq0J)\r # Computing 2 Coursework Submission.\r **CID**: [02600918]",
   "main": "web-app/Module.js",
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "jslint": "^0.12.1",
     "ramda": "^0.32.0"
   },
   "devDependencies": {
+    "chai": "^6.2.2",
     "docdash": "^2.0.2",
-    "mocha": "^11.7.5"
-  }
+    "mocha": "^11.7.6"
+  },
+  "scripts": {
+    "test": "mocha \"web-app/tests/**/*.js\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Computing-2-Submissions-2025-26/computing-2-submission-Joseph-Birch.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/Computing-2-Submissions-2025-26/computing-2-submission-Joseph-Birch/issues"
+  },
+  "homepage": "https://github.com/Computing-2-Submissions-2025-26/computing-2-submission-Joseph-Birch#readme"
 }

@@ -1,9 +1,48 @@
-<!-- In HTML Comments are written like this -->
-<!-- They can all be removed for your apps -->
-<!doctype html> <!-- This first line tells browsers to expect modern standard html 5 -->
-<html lang="en-gb"> <!-- This is indicates the page is written in British English, useful for accessibility -->
-<meta charset="utf-8"> <!-- This indicates how the file is encoded. utf-8 is standard -->
-<title>Your Web-app Title</title> <!-- All pages need a title, this will be displayed in the browser's title bar -->
-<link rel="stylesheet" href="default.css"> <!-- Import style sheet – default.css -->
-<link rel="icon" href="./assets/favicon.png"> <!-- Import 'Favorites Icon' – favicon.png -->
-<script type="module" src="main.js"></script> <!-- Load the main script. Must be type="module". Have only one of these -->
+<!doctype html>
+<html lang="en-gb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crab Stack</title>
+  <link rel="stylesheet" href="./default.css">
+  <link rel="icon" href="./assets/favicon.png">
+</head>
+<body>
+
+  <!-- page wrapper -->
+  <div class="page">
+
+    <!-- Header area - title, game status, restart button -->
+    <header class="game-header">
+      <h1 class="game-title">Crab Stack</h1>
+      <p id="status" class="game-status">Loading game...</p>
+      <button id="restart-button" class="restart-button">Restart Game</button>
+    </header>
+
+    <!-- 3-box game layout -->
+    <main class="game-layout">
+
+      <!-- Blue player's reserve box -->
+      <section class="reserve-panel">
+        <h2 class="panel-title">Blue Reserve</h2>
+        <div id="Blue-reserve" class="reserve-grid"></div>
+      </section>
+
+      <!-- Centre board box -->
+      <section class="board-panel">
+        <h2 class="panel-title">Board</h2>
+        <div id="board" class="board-grid"></div>
+      </section>
+
+      <!-- Red player's reserve box -->
+      <section class="reserve-panel">
+        <h2 class="panel-title">Red Reserve</h2>
+        <div id="Red-reserve" class="reserve-grid"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
